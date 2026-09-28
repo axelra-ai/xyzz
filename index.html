@@ -1,1 +1,386 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillSwap</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 { margin: 0; color: var(--primary); }
+        p { color: var(--text-light); margin-top: 5px; }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            flex: 1;
+        }
+
+        input, select {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            flex: 1;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        button:hover { background-color: #4f46e5; }
+        
+        .mode-btn {
+            background-color: var(--border);
+            color: var(--text);
+            flex: 0 0 120px;
+        }
+        .mode-btn.active {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-left: 4px solid var(--primary);
+        }
+
+        .card h3 { margin: 0 0 10px 0; }
+        .card p { margin: 5px 0; font-size: 0.9em; }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background-color: #e0e7ff;
+            color: var(--primary);
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        .match-card {
+            border-left-color: #10b981; /* Green for matches */
+        }
+        .match-card h3 { color: #10b981; }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-light);
+            grid-column: 1 / -1;
+            padding: 40px;
+        }
+
+        .actions {
+            margin-top: 15px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.85em;
+        }
+        .btn-danger {
+            background-color: #ef4444;
+        }
+        .btn-danger:hover { background-color: #dc2626; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>SkillSwap</h1>
+        <p>Trade skills. Find your perfect match.</p>
+    </header>
+
+    <div class="controls">
+        <button id="offerBtn" class="mode-btn active" onclick="setMode('offer')">I Offer</button>
+        <button id="requestBtn" class="mode-btn" onclick="setMode('request')">I Need</button>
+        
+        <div class="input-group">
+            <input type="text" id="skillInput" placeholder="Enter a skill (e.g., Guitar, Python, Cooking)">
+            <button onclick="addEntry()">Add</button>
+        </div>
+    </div>
+
+    <div id="displayArea" class="grid">
+        <!-- Cards will be injected here -->
+    </div>
+</div>
+
+<script>
+    // --- Data Management ---
+    const getStorage = (key) => JSON.parse(localStorage.getItem(key)) || [];
+    const setStorage = (key, data) => localStorage.setItem(key, JSON.stringify(data));
+    
+    let currentMode = 'offer'; // 'offer' or 'request'
+    let users = getStorage('users');
+    let offers = getStorage('offers');
+    let requests = getStorage('requests');
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+        // If empty, add demo data
+        if (users.length === 0) {
+            addDemoData();
+        }
+        render();
+    });
+
+    function addDemoData() {
+        addEntryDirect('Alice', 'Python');
+        addEntryDirect('Bob', 'Guitar');
+        addEntryDirect('Charlie', 'HTML');
+        // Create a logical loop: Alice wants Guitar, Bob wants HTML, Charlie wants Python
+        requests.push({user: 'Alice', skill: 'Guitar'});
+        requests.push({user: 'Bob', skill: 'HTML'});
+        requests.push({user: 'Charlie', skill: 'Python'});
+        saveAll();
+    }
+
+    // --- Core Logic ---
+
+    function setMode(mode) {
+        currentMode = mode;
+        document.getElementById('offerBtn').classList.toggle('active', mode === 'offer');
+        document.getElementById('requestBtn').classList.toggle('active', mode === 'request');
+        document.getElementById('skillInput').placeholder = mode === 'offer' ? "Skill you can teach" : "Skill you want to learn";
+        document.getElementById('skillInput').value = '';
+        document.getElementById('skillInput').focus();
+        render(); // Re-render to show relevant filters or empty states
+    }
+
+    function addEntry() {
+        const input = document.getElementById('skillInput');
+        const skill = input.value.trim();
+        if (!skill) return;
+
+        // Simple user identification based on local session (In a real app, this is a login)
+        let userId = localStorage.getItem('currentUser');
+        if (!userId) {
+            userId = "User_" + Math.floor(Math.random() * 10000);
+            localStorage.setItem('currentUser', userId);
+        }
+
+        // If the name field is empty or generic, we use the ID. 
+        // For a real app, you'd have a name input. Here we just use "User_123"
+        const userName = userId; 
+
+        if (currentMode === 'offer') {
+            offers.push({ user: userName, skill: skill });
+        } else {
+            requests.push({ user: userName, skill: skill });
+        }
+
+        input.value = '';
+        saveAll();
+        render();
+    }
+
+    function addEntryDirect(user, skill) {
+        // Helper for demo data
+        offers.push({ user: user, skill: skill });
+        // Note: Demo data logic is handled in addDemoData directly pushing to arrays
+    }
+
+    function saveAll() {
+        setStorage('users', users); // Just keeping track of unique users
+        setStorage('offers', offers);
+        setStorage('requests', requests);
+        // Extract unique users for the "users" list
+        const allUsers = [...new Set([...offers.map(o=>o.user), ...requests.map(r=>r.user)])];
+        setStorage('users', allUsers);
+    }
+
+    function deleteEntry(type, index) {
+        if (type === 'offer') offers.splice(index, 1);
+        if (type === 'request') requests.splice(index, 1);
+        saveAll();
+        render();
+    }
+
+    // --- Matching Algorithm ---
+    function findMatches() {
+        // 1. Get all unique users who have made an offer
+        const offerers = [...new Set(offers.map(o => o.user))];
+        
+        // 2. Get all unique users who made a request
+        const requesters = [...new Set(requests.map(r => r.user))];
+
+        const matches = [];
+
+        // 3. Iterate through users who offered something
+        for (const userA of offerers) {
+            // Get skills User A offers
+            const skillsA = offers.filter(o => o.user === userA).map(o => o.skill);
+            // Get skills User A requested
+            const wantsA = requests.filter(r => r.user === userA).map(r => r.skill);
+
+            // Look for other users
+            for (const userB of requesters) {
+                if (userA === userB) continue;
+
+                // Get skills User B offers
+                const skillsB = offers.filter(o => o.user === userB).map(o => o.skill);
+                // Get skills User B requested
+                const wantsB = requests.filter(r => r.user === userB).map(r => r.skill);
+
+                // Check: Does B want what A offers?
+                const bWantsA = wantsB.some(s => skillsA.includes(s));
+                
+                // Check: Does A want what B offers?
+                const aWantsB = wantsA.some(s => skillsB.includes(s));
+
+                if (bWantsA && aWantsB) {
+                    // We found a match!
+                    // Find the specific skills for the UI
+                    const specificOfferA = skillsA.find(s => wantsB.includes(s));
+                    const specificOfferB = skillsB.find(s => wantsA.includes(s));
+
+                    matches.push({
+                        userA,
+                        userB,
+                        mySkill: specificOfferA,
+                        theirSkill: specificOfferB
+                    });
+                }
+            }
+        }
+        return matches;
+    }
+
+    // --- Rendering ---
+    function render() {
+        const container = document.getElementById('displayArea');
+        container.innerHTML = '';
+
+        // 1. Render Matches Section (Always visible at top)
+        const matches = findMatches();
+        if (matches.length > 0) {
+            const matchHeader = document.createElement('h2');
+            matchHeader.textContent = "Perfect Matches";
+            matchHeader.style.gridColumn = "1 / -1";
+            container.appendChild(matchHeader);
+
+            matches.forEach(m => {
+                const card = document.createElement('div');
+                card.className = 'card match-card';
+                card.innerHTML = `
+                    <h3>🤝 Match Found!</h3>
+                    <p><strong>${m.userA}</strong> wants to swap with <strong>${m.userB}</strong>.</p>
+                    <div style="display:flex; justify-content:space-between; margin-top:10px;">
+                        <div>
+                            <small>You offer:</small><br>
+                            <span class="badge">${m.mySkill}</span>
+                        </div>
+                        <div>
+                            <small>You want:</small><br>
+                            <span class="badge">${m.theirSkill}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // 2. Render Lists based on current mode
+        const currentData = currentMode === 'offer' ? offers : requests;
+        const label = currentMode === 'offer' ? "Offers" : "Requests";
+        const type = currentMode === 'offer' ? 'offer' : 'request';
+
+        const header = document.createElement('h2');
+        header.textContent = label;
+        header.style.gridColumn = "1 / -1";
+        container.appendChild(header);
+
+        if (currentData.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'empty-state';
+            empty.textContent = `No ${label.toLowerCase()} yet. Add some above!`;
+            container.appendChild(empty);
+            return;
+        }
+
+        currentData.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:start;">
+                    <h3>${item.user}</h3>
+                    <button class="btn-sm btn-danger" onclick="deleteEntry('${type}', ${index})">X</button>
+                </div>
+                <span class="badge">${item.skill}</span>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // Allow "Enter" key to submit
+    document.getElementById('skillInput').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            addEntry();
+        }
+    });
+
+</script>
+
+</body>
+</html>
+
+
